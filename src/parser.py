@@ -1,5 +1,5 @@
 from re import Pattern, compile
-import markdown2
+from . import markdown2
 
 ################ Utils ################
 
@@ -47,8 +47,12 @@ lmap = lambda f, *iterables: list(map(f, *iterables))
 ################ Section Parser ################
 
 def _split_core(text: str, regex: Pattern) -> list: 
-    return lmap(lambda p: p.transform_first(lambda s: s.group(1)), 
-                split_regex(text, regex))
+    def f(s):
+        if (s is None):
+            return None 
+        else: 
+            return s.group(1)
+    return lmap(lambda p: p.transform_first(f), split_regex(text, regex))
 
 def split_sections(text: str) -> list: 
     regex = compile(r"\\section(?:\*)?\{(.*?)\}")
@@ -265,84 +269,95 @@ parser = image_parser
 
 ################# Custom Section Parser #################
 
-def split_cst(text: str, handler): 
+def split_cst(text: str, handler, file_handler): 
     cst_regex = compile(r"\\begin\{cst(.*?)\}(?:\{([\s\S]*?)\})?([\s\S]*?)\\end\{cst(.*?)\}")
     splits = split_regex(text, cst_regex)
     for split in splits: 
-        handle_split(split, handler)
+        handle_split(split, handler, file_handler)
 
-def handle_split(split, handler):
+def handle_split(split, handler, file_handler):
     first = split.first
     split_type = first.group(1)
     representationStr = ""
     if split_type == "def":
-        representationStr = r'<span class="text-cst, text-cst-def">Definition ' + first.group(2) + r".</span>"
+        representationStr = r'<span class="tex-cst tex-cst-def">Definition ' + first.group(2) + r".</span>"
     elif split_type == "def*":
-        representationStr = r'<span class="text-cst, text-cst-def">Definition.</span>'
+        representationStr = r'<span class="tex-cst tex-cst-def">Definition.</span>'
     elif split_type == "thm":
-        representationStr = r'<span class="text-cst, text-cst-thm">Theorem ' + first.group(2) + r".</span>"
+        representationStr = r'<span class="tex-cst tex-cst-thm">Theorem ' + first.group(2) + r".</span>"
     elif split_type == "thm*":
-        representationStr = r'<span class="text-cst, text-cst-thm">Theorem.</span>'
+        representationStr = r'<span class="tex-cst tex-cst-thm">Theorem.</span>'
     elif split_type == "eg":
-        representationStr = r'<span class="text-cst, text-cst-eg">Example ' + first.group(2) + r".</span>"
+        representationStr = r'<span class="tex-cst tex-cst-eg">Example ' + first.group(2) + r".</span>"
     elif split_type == "eg*":
-        representationStr = r'<span class="text-cst, text-cst-eg">Example.</span>'
+        representationStr = r'<span class="tex-cst tex-cst-eg">Example.</span>'
     elif split_type == "exe":
-        representationStr = r'<span class="text-cst, text-cst-exe">Exercise ' + first.group(2) + r".</span>"
+        representationStr = r'<span class="tex-cst tex-cst-exe">Exercise ' + first.group(2) + r".</span>"
     elif split_type == "exe*":
-        representationStr = r'<span class="text-cst, text-cst-exe">Exercise.</span>'
+        representationStr = r'<span class="tex-cst tex-cst-exe">Exercise.</span>'
     elif split_type == "eexe":
-        representationStr = r'<span class="text-cst, text-cst-eexe">Extra Exercise ' + first.group(2) + r".</span>"
+        representationStr = r'<span class="tex-cst tex-cst-eexe">Extra Exercise ' + first.group(2) + r".</span>"
     elif split_type == "eexe*":
-        representationStr = r'<span class="text-cst, text-cst-eexe">Extra Exercise.</span>'
+        representationStr = r'<span class="tex-cst tex-cst-eexe">Extra Exercise.</span>'
     elif split_type == "rmk":
-        representationStr = r'<span class="text-cst, text-cst-rmk">Remark ' + first.group(2) + r".</span>"
+        representationStr = r'<span class="tex-cst tex-cst-rmk">Remark ' + first.group(2) + r".</span>"
     elif split_type == "rmk*":
-        representationStr = r'<span class="text-cst, text-cst-rmk">Remark.</span>'
+        representationStr = r'<span class="tex-cst tex-cst-rmk">Remark.</span>'
     elif split_type == "qsn":
-        representationStr = r'<span class="text-cst, text-cst-qsn">Question ' + first.group(2) + r".</span>"
+        representationStr = r'<span class="tex-cst tex-cst-qsn">Question ' + first.group(2) + r".</span>"
     elif split_type == "qsn*":
-        representationStr = r'<span class="text-cst, text-cst-qsn">Question.</span>'
+        representationStr = r'<span class="tex-cst tex-cst-qsn">Question.</span>'
     elif split_type == "cor":
-        representationStr = r'<span class="text-cst, text-cst-cor">Corollary ' + first.group(2) + r".</span>"
+        representationStr = r'<span class="tex-cst tex-cst-cor">Corollary ' + first.group(2) + r".</span>"
     elif split_type == "cor*":
-        representationStr = r'<span class="text-cst, text-cst-cor">Corollary.</span>'
+        representationStr = r'<span class="tex-cst tex-cst-cor">Corollary.</span>'
     else:
         representationStr = ""
-    front_text = representationStr + parser.parse(first.group(3))
-    back_text = parser.parse(split.second)
+    image_regex = compile(r"\\includegraphics(?:\[[\s\S]*\])?\{([\s\S]*?)\}")
+    image_assembler = lambda match: r'<img src="' + file_handler(match.group(1)) + r'" />'
+    _parser = ProtectedEnvironmentParser(image_regex, image_assembler, minted_parser)
+    front_text = representationStr + _parser.parse(first.group(3))
+    back_text = _parser.parse(split.second)
     handler(front_text, back_text)
 
 ################ Parse All ################
 
-def parse_all(text: str, handler_gen): 
+def parse_all(text: str, handler_gen, file_handler): 
     sections = split_sections(text)
+    sections_counter = 1
     for section in sections: 
         name = ""
         if section.first is None:
-            split_cst(section.second, handler_gen(name))
+            split_cst(section.second, handler_gen(name), file_handler)
             continue
         else:
-            name = section.first
-        subsections = split_subsections(section)
+            name = str(sections_counter) + ". " + section.first 
+            sections_counter += 1
+        subsections = split_subsections(section.second)
+        subsections_counter = 1
         for subsection in subsections: 
             subname = ""
             if subsection.first is None:
                 subname = name 
-                split_cst(subsection.second, handler_gen(subname))
+                split_cst(subsection.second, handler_gen(subname), file_handler)
                 continue
-            else: 
-                subname = name + "::" + subsection.first
-            subsubsections = split_subsubsections(subsection)
+            else:
+                subname = name + "::" + str(subsections_counter) + ". " + subsection.first
+                subsections_counter += 1
+            subsubsections = split_subsubsections(subsection.second)
+            subsubsections_counter = 1
             for subsubsection in subsubsections: 
                 subsubname = ""
                 if subsubsection.first is None:
                     subsubname = subname 
-                    split_cst(subsubsection.second, handler_gen(subsubname))
+                    split_cst(subsubsection.second, handler_gen(subsubname),
+                              file_handler)
                     continue
                 else: 
-                    subsubname = subname + "::" + subsubsection.first
-                split_cst(subsubsection.second, handler_gen(subsubname))
+                    subsubname = subname + "::" + str(subsubsections_counter) + ". " + subsubsection.first
+                    subsubsections_counter += 1
+                split_cst(subsubsection.second, handler_gen(subsubname),
+                          file_handler)
 
 
 ################ Tests ################

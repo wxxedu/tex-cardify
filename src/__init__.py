@@ -1,10 +1,8 @@
-import aqt
 from aqt import mw 
 from aqt.qt import * 
 from aqt import AnkiQt, gui_hooks
-from aqt.utils import showInfo, showWarning, tooltip 
-
-from . import nodes
+from . import parser
+from . import handler
 
 class ImportDialog(QDialog):
     def __init__(self, parent=None):
@@ -35,20 +33,23 @@ class ImportDialog(QDialog):
         dialog = QFileDialog(self)
         dialog.setFileMode(QFileDialog.ExistingFile)
         dialog.setNameFilter("Tex files (*.tex)")
-        lines = []
         filename = ""
+        content = ""
         if dialog.exec_():
             # read the file 
             filename = dialog.selectedFiles()[0]
             with open(filename, "r") as f:
-                lines = f.readlines()
+                content = f.read()
             # close the dialog
             self.close()
-        showInfo(filename)
         # get the filename's base url 
         base_url = filename[:filename.rfind('/')]
-        fileNode = nodes.FileNode(lines)
-        fileNode.act(self.baseDeck.text(), base_url=base_url)
+        # get the base deck name 
+        base_deck = self.baseDeck.text() 
+        ghd = handler.gen_gen_handler(base_deck)
+        fhd = handler.gen_file_handler(base_url)
+        # parse the file 
+        parser.parse_all(content, ghd, fhd)
         mw.reset()
         self.accept()
 

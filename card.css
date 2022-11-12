@@ -1,0 +1,45 @@
+.card {
+  font-family: 'CMU Serif', serif;
+  font-size: 14px;
+  text-align: left;
+  background-color: white;
+  color: black;
+}
+
+.tex-paragraph, .tex-cst {
+  font-weight: bold;
+}
+
+.tex-code {
+  font-family: "CMU Typewriter Text", "Courier New", Courier, monospace;
+  color: orange;
+}
+
+.tex-bold {
+  font-weight: bold;
+}
+
+.tex-italic {
+  font-style: italic;
+}
+
+.tex-underline {
+  text-decoration: underline;
+}
+
+.tex-proof-start {
+  font-style: italic;
+  font-weight: bold;
+}
+
+.tex-proof-end {
+  float: right;
+  border: 1px solid black;
+  width: 14px;
+  height: 14px;
+}
+
+.tex-center {
+  text-align: center;
+}
+
