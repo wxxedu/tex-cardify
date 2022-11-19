@@ -9,3 +9,4 @@ cd tmp
 zip -r ../tex-cardify.ankiaddon *
 cd ..
 rm -rf tmp
+open tex-cardify.ankiaddon

@@ -163,7 +163,9 @@ parsers = []
 _escape_parser_1 = SimpleReplacementParser("&", "&amp;")
 _escape_parser_2 = SimpleReplacementParser("<", "&lt;")
 _escape_parser_3 = SimpleReplacementParser(">", "&gt;")
-escape_parser = SequentialParser([_escape_parser_1, _escape_parser_2, _escape_parser_3])
+_escape_parser_4 = SimpleReplacementParser("`", "'")
+escape_parser = SequentialParser([_escape_parser_1, _escape_parser_2,
+                                  _escape_parser_3, _escape_parser_4])
 parsers.append(escape_parser)
 
 # line parser - replace \n\n with <br> and \n with " "
@@ -206,7 +208,11 @@ code_regex = compile(r"\\texttt\{([\s\S]*?)\}")
 code_assembler = lambda match: f'<span class="tex-code">{match.group(1)}</span>'
 code_parser = UnprotectedEnvironmentParser(code_regex, code_assembler)
 
-parsers += [bold_parser, italic_parser, underline_parser, code_parser]
+color_regex = compile(r"\\color\{([\s\s]*?)\}")
+color_assembler = lambda _: ""
+color_parser = UnprotectedEnvironmentParser(color_regex, color_assembler)
+
+parsers += [bold_parser, italic_parser, underline_parser, code_parser, color_parser]
 
 # lists
 
@@ -226,6 +232,9 @@ paragraph_assembler = lambda match: '<span class="tex-paragraph">' + match.group
 paragraph_parser = UnprotectedEnvironmentParser(paragraph_regex, paragraph_assembler)
 parsers.append(paragraph_parser)
 
+pagebreak_parser = SimpleReplacementParser(r"\pagebreak", r"")
+parsers.append(pagebreak_parser)
+
 # sequential aggregate 
 
 unprotected_parser = SequentialParser(parsers)
@@ -235,16 +244,21 @@ unprotected_parser = SequentialParser(parsers)
 inline_math_regex = compile(r"\$([\s\S]*?)\$")
 inline_math_assembler = lambda match: f"\\({escape(match.group(1))}\\)"
 inline_math_parser = ProtectedEnvironmentParser(inline_math_regex,
-                                                inline_math_assembler, unprotected_parser) 
+                                                inline_math_assembler,
+                                                unprotected_parser) 
 
 block_math_assembler = lambda match: f"\\[{escape(match.group(1))}\\]" 
 display_math_regex = compile(r"\$\$([\s\S]*?)\$\$") 
 display_math_parser = ProtectedEnvironmentParser(display_math_regex, 
                                                  block_math_assembler, inline_math_parser)
 
+dollar_sign_assembler = lambda _: r"\$"
+dollar_sign_parser = ProtectedEnvironmentParser(compile(r"\\\$"),
+                                                dollar_sign_assembler, display_math_parser)
+
 equation_regex = compile(r"\\begin\{equation\*?\}([\s\S]*?)\\end\{equation\*?\}")
 equation_parser = ProtectedEnvironmentParser(equation_regex, 
-                                             block_math_assembler, display_math_parser)
+                                             block_math_assembler, dollar_sign_parser)
 
 gather_regex = compile(r"\\begin\{gather\*?\}([\s\S]*?)\\end\{gather\*?\}")
 gather_assembler = lambda match: r"\[\begin{gathered}" + escape(match.group(1)) + r"\end{gathered}\]"
@@ -256,7 +270,7 @@ align_assembler = lambda match: r"\[\begin{aligned}" + escape(match.group(1)) + 
 align_parser = ProtectedEnvironmentParser(align_regex, align_assembler, gather_parser)
 
 minted_regex = compile(r"\\begin\{minted\*?\}(?:\[[\s\S]*\])?\{([\s\S]*?)\}([\s\S]*?)\\end\{minted\*?\}")
-code_md_assembler = lambda match: r"```" + match.group(1) + "\n" + escape(match.group(2)) + r"\n```"
+code_md_assembler = lambda match: r"```" + match.group(1) + "\n" + escape(match.group(2)) + r"```"
 minted_assembler = lambda match: markdown2.markdown(code_md_assembler(match), extras=["fenced-code-blocks"])
 minted_parser = ProtectedEnvironmentParser(minted_regex, minted_assembler, align_parser)
 

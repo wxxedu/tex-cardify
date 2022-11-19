@@ -38,7 +38,7 @@ class ImportDialog(QDialog):
         if dialog.exec_():
             # read the file 
             filename = dialog.selectedFiles()[0]
-            with open(filename, "r") as f:
+            with open(filename, "r", encoding="utf-8") as f:
                 content = f.read()
             # close the dialog
             self.close()
